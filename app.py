@@ -1,13 +1,8 @@
 ```python
 from flask import Flask, render_template, request, redirect
 import os
-
-# Disable GPU checks (helps on Render)
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-
 from tensorflow.keras.models import load_model
-from PIL import Image
-from werkzeug.utils import secure_filename
+from tensorflow.keras.preprocessing import image
 import numpy as np
 
 app = Flask(__name__)
@@ -18,19 +13,16 @@ app.secret_key = 'your_secret_key'
 # Ensure uploads folder exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Load model once at startup
+# Load model once
 model_path = os.path.join('model', 'pneumonia_model.h5')
 model = load_model(model_path)
 
 
 def preprocess_image(img_path):
-    img = Image.open(img_path).convert("RGB")
-    img = img.resize((150, 150))
-
-    img_array = np.array(img)
-    img_array = img_array / 255.0
+    img = image.load_img(img_path, target_size=(150, 150))
+    img_array = image.img_to_array(img)
     img_array = np.expand_dims(img_array, axis=0)
-
+    img_array /= 255.0
     return img_array
 
 
@@ -49,36 +41,27 @@ def index():
 
         if file:
 
-            filename = secure_filename(file.filename)
-
             filepath = os.path.join(
                 app.config['UPLOAD_FOLDER'],
-                filename
+                file.filename
             )
 
             file.save(filepath)
 
-            try:
-                processed_image = preprocess_image(filepath)
+            processed_image = preprocess_image(filepath)
 
-                prediction = model.predict(processed_image)
+            prediction = model.predict(processed_image)
 
-                result = (
-                    "Pneumonia detected"
-                    if prediction[0][0] > 0.5
-                    else "No Pneumonia detected"
-                )
-
-            except Exception as e:
-                result = f"Prediction error: {str(e)}"
-
-            # Optional cleanup
-            if os.path.exists(filepath):
-                os.remove(filepath)
+            result = (
+                "Pneumonia detected"
+                if prediction[0][0] > 0.5
+                else "No Pneumonia detected"
+            )
 
             return render_template(
                 'index.html',
-                prediction=result
+                prediction=result,
+                image_path=filepath
             )
 
     return render_template(
