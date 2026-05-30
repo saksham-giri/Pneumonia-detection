@@ -1,4 +1,4 @@
-```python
+
 from flask import Flask, render_template, request, redirect
 import os
 from tensorflow.keras.models import load_model
@@ -72,4 +72,4 @@ def index():
 
 if __name__ == '__main__':
     app.run(debug=True)
-```
+
